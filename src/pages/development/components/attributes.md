@@ -51,11 +51,6 @@ Customer EAV attributes are created using a [data patches](declarative-schema/pa
 Both the `save()` and `getResource()` methods for `Magento\Framework\Model\AbstractModel` have been marked as `@deprecated` since 2.1 and should no longer be used.
 
 ```php
-<?php
-/**
- * Copyright © Magento, Inc. All rights reserved.
- * See COPYING.txt for license details.
- */
 
 namespace Magento\Customer\Setup\Patch\Data;
 
@@ -71,20 +66,10 @@ use Magento\Framework\Setup\Patch\PatchVersionInterface;
  */
 class AddCustomerExampleAttribute implements DataPatchInterface
 {
-    /**
-     * @var ModuleDataSetupInterface
-     */
-    private $moduleDataSetup;
+    private ModuleDataSetupInterface $moduleDataSetup;
 
-    /**
-     * @var CustomerSetupFactory
-     */
-    private $customerSetupFactory;
+    private CustomerSetupFactory $customerSetupFactory;
 
-    /**
-     * @param ModuleDataSetupInterface $moduleDataSetup
-     * @param CustomerSetupFactory $customerSetupFactory
-     */
     public function __construct(
         ModuleDataSetupInterface $moduleDataSetup,
         CustomerSetupFactory $customerSetupFactory
@@ -93,10 +78,7 @@ class AddCustomerExampleAttribute implements DataPatchInterface
         $this->customerSetupFactory = $customerSetupFactory;
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function apply()
+    public function apply(): void
     {
         $customerSetup = $this->customerSetupFactory->create(['setup' => $this->moduleDataSetup]);
         $customerSetup->addAttribute(Customer::ENTITY, 'attribute_code', [
@@ -104,20 +86,14 @@ class AddCustomerExampleAttribute implements DataPatchInterface
         ]);
     }
 
-    /**
-     * @inheritdoc
-     */
-    public static function getDependencies()
+    public static function getDependencies(): array
     {
         return [
             UpdateIdentifierCustomerAttributesVisibility::class,
         ];
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function getAliases()
+    public function getAliases(): array
     {
         return [];
     }
@@ -227,7 +203,7 @@ searchCriteria[filter_groups][0][filters][0]
 
 ### Extension attribute authentication
 
-Individual fields that are defined as extension attributes can be restricted, based on existing permissions. This feature allows extension developers to restrict access to data. See [Web API authentication overview](https://devdocs.magento.com/guides/v2.4/get-started/authentication/gs-authentication.html) for general information about authentication in Magento.
+Individual fields that are defined as extension attributes can be restricted, based on existing permissions. This feature allows extension developers to restrict access to data. See [Web API authentication overview](https://developer.adobe.com/commerce/webapi/get-started/authentication/) for general information about authentication in Magento.
 
 The following [code sample](https://github.com/magento/magento2/blob/2.4/app/code/Magento/CatalogInventory/etc/extension_attributes.xml) defines `stock_item` as an extension attribute of the `CatalogInventory` module. `CatalogInventory` is treated as a "third-party extension". Access to the inventory data is restricted because the quantity of in-stock item may be competitive information.
 
@@ -302,33 +278,63 @@ However, if an extension similar to the following has been defined, the interfac
 
 ### Troubleshoot EAV attributes
 
-If you have issues when using `setup:upgrade`, verify `__construct` uses the method `EavSetupFactory` not `EavSetup`. You should not directly inject `EavSetup` in extension code. Check your custom code and purchased modules and extensions to verify. After changing the methods, you should be able to properly deploy.
+- If you have issues when using `setup:upgrade`, verify `__construct` uses the method `EavSetupFactory` not `EavSetup`. You should not directly inject `EavSetup` in extension code. Check your custom code and purchased modules and extensions to verify. After changing the methods, you should be able to properly deploy.
+- When invoking `EavSetup::addAttribute()`, the `$attr` array is passed to a `\Magento\Eav\Model\Entity\Setup\PropertyMapperInterface` object, and the valid array keys may differ from their column name in `eav_attribute`, `catalog_eav_attribute`, `customer_eav_attribute`, etc. When invoking `EavSetup::updateAttribute()`, and passing an array for the third parameter `$field`, the array is _not_ passed `PropertyMapperInterface::map()`, and array keys should directly correlate with their corresponding table column name.
+  - Note: `addAttribute()` can also be used to update existing attributes.
 
-## Add product EAV attribute options reference
+## Add EAV attribute options reference
 
-The following table is a reference for the `Magento\Eav\Setup\EavSetup::addAttribute` method. It contains the available options when creating a product attribute, listing each option's key, description, and the default value (where applicable).
+The following tables provide references for the `addAttribute` and `updateAttribute` methods of `Magento\Eav\Setup\EavSetup` method. They contains available options and mappings when creating and/or updating an attribute.
 
-|Key|Description|Default Value|
-|--- |--- |--- |
-|apply_to|Catalog EAV Attribute - defines which product types the attribute can be applied to||
-|attribute_model|EAV Attribute attribute_model||
+### Attribute Options: _(valid for all available `entity_type_code` entities)_
+
+- Mapper: `\Magento\Eav\Model\Entity\Setup\PropertyMapper`
+
+|Option|Map|Description|Default Value|
+|--- |--- |--- |---
+|`attribute_model`|`attribute_model`|EAV Attribute attribute_model|`null`|
+|`backend_model`|`backend`|The backend class model for the attribute.|`null`|
+|`default_value`|`default`|Default value for the attribute|`null`|
+|`frontend_class`|CSS class name(s) added to the input field for the attribute during rendering of a form.|`null`|
+|`frontend_input`|`input`|Type of input field to be used in forms. Valid values: `button|checkbox|checkboxes|collection|column|date|editor|fieldset|file|gallery|hidden|image|imagefile|label|link|multiline|multiselect|note|obsure|password|radio|radios|reset|select|submit|text|textarea|time`|`text`|
+|`frontend_label`|`label`|Label to use on frontend|`null`|
+|`frontend_model`|`frontend`|The frontend class model for the attribute.|`null`|
+|`is_global`|`global`|Defines the scope(s) that the attirbute can be saved at. Valid value is one of `SCOPE_GLOBAL`, `SCOPE_WEBSITE`, `SCOPE_STORE` from the `\Magento\Eav\Model\Entity\Attribute\ScopedAttributeInterface` class.|`SCOPE_GLOBAL`|
+
+
+### Attribute Options: _(`catalog_product` and `catalog_category` entities)_
+
+- Mappers:
+  - `\Magento\Catalog\Model\ResourceModel\Setup\PropertyMapper`
+  - `\Magento\CatalogSearch\Model\ResourceModel\Setup\PropertyMapper`
+  - `\Magento\ConfigurableProduct\Model\ResourceModel\Setup\PropertyMapper`
+
+<InlineAlert variant="info" slots="text"/>
+
+While all options below are saved for both `catalog_product` and `catalog_category` entities, many of these mentioned below have no effect for `catalog_category` entities, and are only applicable to entities of `catalog_product`.
+
+|Option|Map|Description|Default Value
+|--- |--- |--- |--- |---
+|`apply_to`|`apply_to`|Correlates to `type_id` of `catalog_product` entities. Expects comma separated list of `type_id` value(s). `null` applies the attribute to all product types _(not applicable for `catalog_category` entities)_. |`null`|
+|`is_comparable`|`comparable`|Defines if attribute is shown when comparing products.|`0`|
+|`is_filterable`|`filterable`|Defines if attribute is added to the layered navigation block of category pages.|`0`|
+|`is_filterable_in_grid`|`is_filterable_in_grid`|Defines if attribute can be used to filter on product grid in Admin|`0`|
+|`is_filterable_in_search`|`filterable_in_search`|Defines if the attribute is added to the layered navigation block of search results pages.|`0`|
+|`is_html_allowed_on_front`|`is_html_allowed_on_front`|Defines if HTML needs to be escaped when rendering frontend output.|`0`|
+|`is_used_in_grid`|`is_used_in_grid`|Defines if the attribute will be added to the collection for frontend product listings such category pages and search results pages. Useful if your frontend design template(s) require this data for your them. If your theme does not require the attribute in this scenario, you may want to leave this off for performance reasons.|`0`|
+|`is_visible_in_grid`|`is_visible_in_grid`|Defines if attribute can be added to the columns of the primary product grid of the adminhtml area.|`0`|
+|`frontend_input_renderer`|`input_renderer`|If your attribute requires custom html markup when it's field for a form, a class may here for such needs.|`null`|
+
+
 |attribute_set|Name of the attribute set the new attribute will be assigned to. Works in combination with **group** or empty **user_defined**||
-|backend|EAV Attribute backend_model||
-|comparable|Catalog EAV Attribute - defines if attribute can be used when comparing products|0|
-|default|EAV Attribute default_value||
-|filterable_in_search|Catalog EAV Attribute is_filterable_in_search - defines if attribute can be used to filter search results|0|
-|filterable|Catalog EAV Attribute is_filterable - defines if attribute can be used to filter on navigation|0|
-|frontend_class|EAV Attribute frontend_class||
-|frontend|EAV Attribute frontend_model||
-|global|Catalog EAV Attribute is_global field|1|
 |group|Attribute group name or ID||
-|input_renderer|Catalog EAV Attribute frontend_input_renderer||
-|input|EAV Attribute frontend_input|text|
-|is_filterable_in_grid|Catalog EAV Attribute - defines if attribute can be used to filter on product grid in Admin|0|
-|is_html_allowed_on_front|Catalog EAV Attribute - defines if HTML needs to be escaped on the frontend|0|
-|is_used_in_grid|Catalog EAV Attribute - defines if attribute can be used on the product grid in Admin|0|
-|is_visible_in_grid|Catalog EAV Attribute is_visible_in_grid - defines if attribute will be visible on the product grid in Admin|0|
-|label|EAV Attribute frontend_label||
+
+
+
+
+
+
+
 |note|EAV Attribute note||
 |option|EAV Attribute Option values||
 |position|Catalog EAV Attribute position|0|
